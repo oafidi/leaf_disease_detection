@@ -9,7 +9,7 @@
 # Redirection HTTP → HTTPS
 server {
     listen 80;
-    server_name TON_DOMAINE.COM www.TON_DOMAINE.COM;
+    server_name fellah.space www.fellah.space;
 
     # Défi ACME Let's Encrypt (renouvellement automatique)
     location /.well-known/acme-challenge/ {
@@ -25,11 +25,11 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name TON_DOMAINE.COM www.TON_DOMAINE.COM;
+    server_name fellah.space www.fellah.space;
 
     # ── Certificats Let's Encrypt ──────────────────────────────────────────
-    ssl_certificate     /etc/letsencrypt/live/TON_DOMAINE.COM/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/TON_DOMAINE.COM/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/fellah.space/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/fellah.space/privkey.pem;
 
     # ── Paramètres SSL sécurisés (TLS 1.2 + 1.3 uniquement) ───────────────
     ssl_protocols TLSv1.2 TLSv1.3;
