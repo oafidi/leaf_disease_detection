@@ -1,0 +1,17 @@
+# Secrets — ne jamais versionner
+.env
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Docker volumes locaux
+db_data/
+

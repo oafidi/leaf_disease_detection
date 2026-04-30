@@ -1,0 +1,122 @@
+services:
+
+  # ── 1. Base de données MySQL ─────────────────────────────────────────────
+  mysql-db:
+    image: mysql:8.0
+    container_name: applescan-mysql
+    restart: always
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    # Port NON exposé sur l'hôte — réseau Docker interne uniquement
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  # ── 2. Service d'authentification ───────────────────────────────────────
+  auth-service:
+    build: ./auth-service
+    container_name: applescan-auth
+    restart: always
+    # Pas de "ports:" — accessible uniquement via Nginx (réseau interne)
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql-db:3306/${MYSQL_DATABASE}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    networks:
+      - internal
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+  # ── 3. Service de vision / ML ────────────────────────────────────────────
+  model-service:
+    build: ./vision-service
+    container_name: applescan-model
+    restart: always
+    environment:
+      MODEL_PATH: /app/apple_leaf_model_final.keras
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    volumes:
+      - ./vision-service/apple_leaf_model_final.keras:/app/apple_leaf_model_final.keras:ro
+    networks:
+      - internal
+    depends_on:
+      - auth-service
+
+  # ── 4. Service de chat ───────────────────────────────────────────────────
+  chat-service:
+    build: ./chat-service
+    container_name: applescan-chat
+    restart: always
+    env_file: .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    networks:
+      - internal
+    depends_on:
+      - auth-service
+
+  # ── 5. Frontend statique ─────────────────────────────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: applescan-frontend
+    restart: always
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - internal
+
+  # ── 6. Nginx reverse proxy (seul point d'entrée public) ──────────────────
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: applescan-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+    networks:
+      - internal
+    depends_on:
+      - frontend
+      - auth-service
+      - model-service
+      - chat-service
+
+  # ── 7. Certbot (renouvellement SSL automatique) ──────────────────────────
+  certbot:
+    image: certbot/certbot
+    container_name: applescan-certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    # Renouvelle le certificat si nécessaire, puis dort 12h
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do
+        certbot renew --quiet --webroot -w /var/www/certbot;
+        sleep 12h & wait $${!};
+      done"
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db_data:
