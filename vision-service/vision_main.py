@@ -9,6 +9,7 @@ from PIL import Image
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mobilenet_preprocess, decode_predictions
 import uvicorn
 
 
@@ -27,19 +28,35 @@ CLASS_NAMES = [
 ]
 IMG_SIZE = (224, 224)
 
+VALID_KEYWORDS = [
+    "leaf", "plant", "flower", "fruit", "tree", "pot", "cabbage",
+    "acorn", "fig", "vegetable", "daisy", "rose", "grass", "lemon",
+    "strawberry", "orange", "apple", "nematode", "slug", "insect",
+    "beetle", "spider", "snail", "ant", "bee", "butterfly", "moth",
+    "mantis", "grasshopper", "fly", "bug", "mushroom", "fungus",
+    "fern", "vine", "greenhouse", "lacewing", "chameleon"
+]
 
 model = None
+imagenet_model = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Load the model
-    global model
+    global model, imagenet_model
     logger.info("Loading model...")
     try:
         model = tf.keras.models.load_model(MODEL_PATH)
         logger.info("Model loaded successfully!")
     except Exception as e:
         logger.error(f"Error loading model: {e}")
+        
+    logger.info("Loading ImageNet MobileNetV2...")
+    try:
+        imagenet_model = MobileNetV2(weights="imagenet")
+        logger.info("ImageNet model loaded successfully!")
+    except Exception as e:
+        logger.error(f"Error loading ImageNet model: {e}")
     
     yield  # API is now running and ready to accept requests
     
@@ -101,7 +118,35 @@ async def predict_image(file: UploadFile = File(...)):
                 status_code=413,
                 content={"message": f"Image too large. Max size: {MAX_UPLOAD_SIZE // (1024*1024)} MB."}
             )
-            
+
+        # Phase 1: OOD Detection (Is it a plant/leaf/insect?)
+        if imagenet_model is not None:
+            try:
+                img_for_imagenet = Image.open(io.BytesIO(contents)).convert("RGB").resize((224, 224))
+                img_array_imagenet = np.array(img_for_imagenet, dtype=np.float32)
+                img_array_imagenet = np.expand_dims(img_array_imagenet, axis=0)
+                img_array_imagenet = mobilenet_preprocess(img_array_imagenet)
+                
+                preds = imagenet_model.predict(img_array_imagenet)
+                top_preds = decode_predictions(preds, top=10)[0]
+                
+                is_valid = False
+                for _, desc, _ in top_preds:
+                    desc_lower = desc.lower()
+                    if any(kw in desc_lower for kw in VALID_KEYWORDS):
+                        is_valid = True
+                        break
+                        
+                if not is_valid:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"message": "L'image ne semble pas être une feuille ou une plante reconnue. Veuillez essayer avec une photo plus claire."}
+                    )
+            except Exception as e:
+                logger.error(f"OOD detection failed: {e}")
+                # Fallback to normal prediction if OOD fails
+
+        # Phase 2: Disease classification
         img_array = prepare_image(contents)
         
         # Use model(..., training=False) for faster single-image inference
