@@ -283,6 +283,28 @@
         }
         .btn-reset:hover { background: #DED0B4; }
 
+        /* ===== ERROR CARD ===== */
+        .error-card {
+            background: var(--card);
+            border-radius: 16px;
+            border: 1px solid rgba(181,80,46,0.2);
+            box-shadow: 0 4px 16px rgba(181,80,46,0.08);
+            padding: 2rem;
+            text-align: center;
+            display: none;
+        }
+        .error-card-icon {
+            width: 56px; height: 56px;
+            background: var(--clay-light);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem;
+            border: 2px solid rgba(181,80,46,0.2);
+        }
+        .error-card-icon svg { width: 26px; height: 26px; color: var(--clay); }
+        .error-card h3 { font-size: 1rem; font-weight: 600; color: var(--ink); margin-bottom: 0.5rem; }
+        .error-card p { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.55; margin-bottom: 1.25rem; }
+
         /* ===== LOADING ===== */
         .loading-card {
             background: var(--card);
@@ -645,6 +667,22 @@
                 <p class="loading-sub">Comparaison avec des milliers de feuilles déjà analysées</p>
             </div>
 
+            <div class="error-card" id="errorCard">
+                <div class="error-card-icon">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                </div>
+                <h3>Image non reconnue</h3>
+                <p id="errorCardMessage">L'image ne semble pas être une feuille ou une plante reconnue.</p>
+                <button class="btn-new-scan" onclick="document.getElementById('imageInput').value=''; currentFile=null; setUIState('initial');">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Essayer avec une autre image
+                </button>
+            </div>
+
             <div class="result-card" id="resultCard">
                 <div class="result-header">
                     <div class="result-status-dot" id="resultDot"></div>
@@ -807,6 +845,7 @@
         const previewCard = document.getElementById('previewCard');
         const loadingCard = document.getElementById('loadingCard');
         const resultCard  = document.getElementById('resultCard');
+        const errorCard   = document.getElementById('errorCard');
 
         function setUIState(state) {
             infoCards.style.display   = (state === 'initial') ? 'grid'  : 'none';
@@ -814,6 +853,7 @@
             previewCard.style.display = (state === 'preview') ? 'block' : 'none';
             loadingCard.style.display = (state === 'loading') ? 'block' : 'none';
             resultCard.style.display  = (state === 'result')  ? 'block' : 'none';
+            errorCard.style.display   = (state === 'error')   ? 'block' : 'none';
         }
         setUIState('initial');
 
@@ -927,9 +967,9 @@
                 setTimeout(() => autoSuggest(data.prediction), 600);
 
             } catch (err) {
-                errorMessage.textContent = err.message || 'Erreur de connexion au serveur de diagnostic.';
-                errorMessage.style.display = 'block';
-                setUIState('result');
+                const msg = err.message || 'Erreur de connexion au serveur de diagnostic.';
+                document.getElementById('errorCardMessage').textContent = msg;
+                setUIState('error');
             } finally {
                 submitBtn.disabled = false;
             }
