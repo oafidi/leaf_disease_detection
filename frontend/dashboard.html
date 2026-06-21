@@ -494,9 +494,13 @@
         @media (max-width: 640px) {
             nav { padding: 0 1rem; gap: 0.6rem; }
             .nav-tagline { display: none; }
-            .left-panel { padding: 1.25rem; gap: 1.1rem; }
-            .info-cards-row { grid-template-columns: 1fr; }
-            .section-title { font-size: 1.3rem; }
+            .left-panel { padding: 1rem; gap: 0.75rem; }
+            .info-cards-row { display: none; }
+            .section-title { font-size: 1.2rem; }
+            .section-subtitle { font-size: 0.75rem; }
+            .upload-zone { padding: 1.5rem 1rem; }
+            .upload-zone h3 { font-size: 0.9rem; }
+            .upload-zone-icon { width: 48px; height: 48px; margin-bottom: 0.75rem; }
         }
 
         @media (max-width: 480px) {
@@ -506,7 +510,6 @@
             .btn-logout { padding: 8px; }
             .preview-image-wrap { height: 200px; }
             .result-info-grid { grid-template-columns: 1fr; }
-            .upload-zone { padding: 2rem 1.25rem; }
         }
 
         @media (prefers-reduced-motion: reduce) {
