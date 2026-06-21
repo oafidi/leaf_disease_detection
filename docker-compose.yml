@@ -30,7 +30,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql-db:3306/${MYSQL_DATABASE}
-      ALLOWED_ORIGINS: "*"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     networks:
       - internal
     depends_on:
@@ -44,7 +44,7 @@ services:
     restart: always
     environment:
       MODEL_PATH: /app/apple_leaf_model_final.keras
-      ALLOWED_ORIGINS: "*"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     volumes:
       - ./vision-service/apple_leaf_model_final.keras:/app/apple_leaf_model_final.keras:ro
     networks:
@@ -61,7 +61,7 @@ services:
     environment:
       SECRET_KEY: ${SECRET_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ALLOWED_ORIGINS: "*"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     networks:
       - internal
     depends_on:
@@ -77,15 +77,18 @@ services:
     networks:
       - internal
 
-  # ── 6. Nginx Reverse Proxy (Le SEUL point d'entrée, Port: 80) ────────────
+  # ── 6. Nginx Reverse Proxy (Point d'entrée HTTP + HTTPS) ─────────────────
   nginx-proxy:
     image: nginx:alpine
     container_name: applescan-nginx
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
     networks:
       - internal
     depends_on:
@@ -94,9 +97,20 @@ services:
       - model-service
       - chat-service
 
+  # ── 7. Certbot — Certificats SSL Let's Encrypt ───────────────────────────
+  certbot:
+    image: certbot/certbot
+    container_name: applescan-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
 networks:
   internal:
     driver: bridge
 
 volumes:
   db_data:
+  certbot_www:
+  certbot_certs:
